@@ -1,0 +1,343 @@
+// Tuan Khang Nguyen, University of Illinois at Chicago, Spring 2021
+// Project 3: Maze solving. In this project, I would try to solve the
+// maze by the implementation of the linked list as a stack. I then push
+// valid position into the stack and then pop the invalid position out of the stack
+// I also read the file in this project. The output would be the coordinates that help
+// us to solve the maze. Moreover, I also have some more edge cases to print out the
+// error message. Doing this project, I would also have the debugMode to trace when
+// the stack is poped as well as when it is pushed.
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+/* This program will read the first 3 lines of input 
+   and prints a static 2D maze*/
+
+typedef struct mazeStruct
+{
+ char **arr;  /* allows for a maze of size 30x30 plus outer walls */
+ int xsize, ysize;
+ int xstart, ystart;
+ int xend, yend;
+ int **flag;
+} maze;
+typedef struct nodeStruct{
+  int x,y;
+  struct nodeStruct* next;
+}node;
+// Set the stack as null
+void initialize(node** hd)
+{
+  *hd = NULL;
+}
+// Check if the stack is empty or not
+int isEmpty (node** hd) {
+  if (*hd == NULL) return 1;  // the stack is empty
+  return 0;  // the stack is not empty
+}
+// Take out the x coordionate
+int topX(node* hd) {
+  return hd->x; 
+}
+// Take out the y coordinate
+int topY(node* hd) {
+  return hd->y;
+}
+// reset the stack after pushed
+void reset(node** hd) {
+  while (*hd != NULL) {
+    node* temp = *hd;
+    *hd = (*hd)->next;
+    free(temp);
+  }
+}
+// print the stack in the reverse order
+void printReverse(node *hd) {
+    if (hd == NULL) return;
+    printReverse(hd -> next);  // recursively point from the tail of the stack
+    printf("(%d,%d) ", hd->x, hd->y);
+   
+    return;
+    
+}
+// Debugmode information of pop function
+void popReverse(node *hd) {
+    //node* ptr = *hd;
+    if (hd == NULL) return;
+    printf("(%d,%d) popped off the stack.\n", hd->x, hd->y);
+    popReverse(hd -> next);
+    return;
+}
+// Push to the front of the stack
+void pushFront (node** hd, int xcoor, int ycoor, int debugMode)
+{
+ node* ptr = (node*) malloc (sizeof(node));  // allocate the new node
+ ptr->x = xcoor;
+ ptr->y = ycoor;
+ ptr->next = *hd;
+ *hd = ptr;
+
+ if (debugMode == 1) {  // debugmode of the push function
+   printf("(%d,%d) pushed into the stack.\n", ptr->x, ptr->y);
+ }
+}
+// Pop at the top of the stack
+void popFront(node** hd, int debugMode)
+{
+  node* ptr = *hd;
+  if (ptr != NULL)
+  {
+    *hd = ptr->next;
+     if (debugMode == 1) {
+      printf("(%d,%d) popped off the stack.\n", ptr->x, ptr->y);
+    }
+    free (ptr);  // pop at the top of the stack
+  }
+ 
+}
+
+int main (int argc, char **argv)
+{
+  maze m1;
+  int xpos, ypos;
+  int i,j;
+  node* hd;
+  initialize(&hd);
+  int coin = 0;
+  int debugMode = 0;
+  FILE *src;
+
+  /* verify the proper number of command line arguments were given */
+  if(argc != 2 && argc != 3) {
+      printf("Usage: %s <input file name>\n", argv[0]);
+     if (argc > 3) printf("Too many input files.\n");
+      exit(-1);
+  }
+
+   
+  /* Try to open the input file. */
+  if ( ( src = fopen( argv[1], "r" )) == NULL) {
+     printf ( "Can't open input file: %s", argv[1] );
+     exit(-1);
+  }
+
+  // The start of the debugmode
+  for (int k = 0; k < argc; k++) {
+    if (strcmp(argv[k], "-d") == 0) {  // the sign for debug mode
+      debugMode = 1;
+    }
+  }
+
+  /* read in the size, starting and ending positions in the maze */
+  if(fscanf (src, "%d %d", &m1.xsize, &m1.ysize) == EOF) {  // read in the first line of the input
+    printf("Invalid data file\n");
+    exit(-1);
+  }
+  else {
+      if (m1.xsize <= 0 || m1.ysize <= 0) { // Message error
+        printf("Maze sizes must be greater than 0\n");
+        exit(-1);
+      }
+  }
+  if(fscanf (src, "%d %d", &m1.xstart, &m1.ystart) == EOF) {  // the second line of the input
+    printf("Invalid data file\n");
+    exit(-1);
+  }
+  else {
+      if (m1.xstart > m1.xsize || m1.ystart > m1.ysize) {  // print the error message
+        printf("size: %d, %d\n", m1.xsize, m1.ysize);
+        printf("start: %d, %d\n", m1.xstart, m1.ystart);
+        printf("Start/End position outside of maze range.\n");;
+        exit(-1);
+      }
+  }
+  if (fscanf (src, "%d %d", &m1.xend, &m1.yend) == EOF) {  // the third line of the input
+    printf("Invalid data file\n");
+    exit(-1);
+  }
+  else {
+      if (m1.xend > m1.xsize || m1.yend > m1.ysize) {  // Print out the error message
+      printf("size: %d, %d\n", m1.xsize, m1.ysize);
+      printf("start: %d, %d\n", m1.xstart, m1.ystart);
+      printf("Start/End position outside of maze range.\n");
+      exit(-1);
+      }
+  }
+  
+  // allocating the two d array to these arrays
+  m1.arr = (char**)malloc(sizeof(char*)*(m1.xsize + 2));
+  m1.flag = (int**)malloc(sizeof(int*)*(m1.xsize + 2));  // the flag array to point unvisited or visited position
+  for (int i = 0; i < m1.xsize + 2; i++){
+      m1.arr[i] = (char*)malloc(sizeof(char) * (m1.ysize + 2));
+      m1.flag[i] = (int*)malloc(sizeof(int) * (m1.ysize + 2));  // the flag array to point unvisited or visited position
+  }
+
+  /* print them out to verify the input */
+  printf ("size: %d, %d\n", m1.xsize, m1.ysize);
+  printf ("start: %d, %d\n", m1.xstart, m1.ystart);
+  printf ("end: %d, %d\n", m1.xend, m1.yend);
+
+  /* initialize the maze to empty */
+  for (i = 0; i < m1.xsize+2; i++)
+     for (j = 0; j < m1.ysize+2; j++)
+       m1.arr[i][j] = '.';
+
+  /* mark the borders of the maze with *'s */
+  for (i=0; i < m1.xsize+2; i++)
+  {
+     m1.arr[i][0] = '*';
+     m1.arr[i][m1.ysize+1] = '*';
+  }
+  for (i=0; i < m1.ysize+2; i++)
+  {
+     m1.arr[0][i] = '*';
+     m1.arr[m1.xsize+1][i] = '*';
+  }
+
+  /* mark the starting and ending positions in the maze */
+  m1.arr[m1.xstart][m1.ystart] = 's';
+  m1.arr[m1.xend][m1.yend] = 'e';
+		  
+  /*This code will only read the first three lines */
+  /*Complete this code by reading the rest of the input
+    and placing blocked and coin positions. */
+  char symbol;
+  while(fscanf(src, "%d %d %c", &xpos, &ypos, &symbol) != EOF) {  // continue to read the rest of the file
+    if (xpos > m1.xsize || ypos > m1.ysize || ypos < 0 || xpos < 0) {  // error message
+      printf("Invalid coordinates: outside of maze range.\n");
+    }
+    else if (xpos == m1.xstart && ypos == m1.ystart) {  // error message
+        printf ("Invalid coordinates: attempting to block start/end position.\n");
+    }
+    else if (xpos == m1.xend && ypos == m1.yend) {  // error message
+        printf ("Invalid coordinates: attempting to block start/end position.\n");
+    }
+    else if (symbol != 'c' && symbol != 'b') {  // error message
+      printf("Invalid type: type is not recognized.\n");
+    }
+    else {
+      if (symbol == 'b') {  // pushed the block into the maze
+        m1.arr[xpos][ypos] = '*';
+      }
+      else if (symbol == 'c') {  // pushed the coin into the maze
+        m1.arr[xpos][ypos] = 'C';
+      }
+    }
+  }
+  /* Blocked positions are marked with 'b' in the input file
+     They should be marked by * in the maze */
+
+  /*Coin positions are marked by 'c' in the input file
+    They should be marked by C in the maze*/
+  
+  /*Close the file*/
+  
+  fclose(src);  // close the file
+ 
+   m1.arr[m1.xstart][m1.ystart] = 's';  // start position
+   m1.arr[m1.xend][m1.yend] = 'e';  // end position
+
+  /* print out the initial maze */
+  for (i = 0; i < m1.xsize+2; i++)
+  {
+     for (j = 0; j < m1.ysize+2; j++)
+       printf ("%c", m1.arr[i][j]);
+     printf("\n");
+  }
+  // Initialize flag
+  for (int i = 0; i < m1.xsize + 2; i++) {
+    for (j = 0; j < m1.ysize+2; j++) {
+        m1.flag[i][j] = 1;
+    }
+  }
+  // Marked all unblocked positions in the maze as "Unvisited"
+  for (int i = 0; i < m1.xsize + 2; i++){
+    for (int j = 0; j < m1.ysize+2; j++) {
+      if (m1.arr[i][j] != '*') m1.flag[i][j] = 0;
+    }
+  }
+  
+  pushFront(&hd, m1.xstart, m1.ystart, debugMode);  // pushed the start positions
+  m1.flag[m1.xstart][m1.ystart] = 1;  // mark as visited position
+  int checkend = 0;
+  coin = 0;
+  
+  xpos = m1.xstart;
+  ypos = m1.ystart;
+  
+  while (isEmpty(&hd) == 0 && checkend == 0) {
+      
+    if (xpos == m1.xend && ypos == m1.yend) {  // if it reaches to the end position, break the program
+      checkend = 1;
+      break;
+    }
+    
+
+    if (m1.arr[xpos + 1][ypos] != '*' && m1.flag[xpos + 1][ypos] == 0) {  // legally going down
+        pushFront(&hd, xpos + 1, ypos, debugMode);  // push in the stack
+        if (m1.arr[xpos + 1][ypos] == 'C') coin++;  // calculate the coin collected
+        m1.flag[xpos + 1][ypos] = 1;  // visited position
+        xpos++;
+    }
+    
+    
+    else if(m1.arr[xpos][ypos + 1] != '*' && m1.flag[xpos][ypos + 1] == 0) {  // legally going right
+      pushFront(&hd, xpos, ypos + 1, debugMode);
+      if (m1.arr[xpos][ypos + 1] == 'C') coin++;
+      m1.flag[xpos][ypos + 1] = 1;
+      
+      ypos++;
+    }
+    
+    else if(m1.arr[xpos - 1][ypos] != '*' && m1.flag[xpos - 1][ypos] == 0) { // legally going up
+      pushFront(&hd, xpos - 1, ypos, debugMode);
+      if (m1.arr[xpos - 1][ypos] == 'C') coin++;
+      m1.flag[xpos - 1][ypos] = 1;
+      xpos--;
+    }
+    
+    else if(m1.arr[xpos][ypos - 1] != '*' && m1.flag[xpos][ypos - 1] == 0) {  // legally going left
+      if(m1.flag[xpos][ypos - 1] == 0) {
+        pushFront(&hd, xpos , ypos - 1, debugMode);
+      }
+      if (m1.arr[xpos][ypos - 1] == 'C') coin++;
+      m1.flag[xpos][ypos - 1] = 1;
+      
+      ypos--;
+    }
+    
+    else {
+      popFront(&hd, debugMode);  // pop the illegal elements
+      if (isEmpty(&hd) == 1) {
+          break;
+      }
+      xpos = topX(hd);
+      ypos = topY(hd);
+    }
+  }
+  if (isEmpty(&hd) == 1){
+    printf("\nThis maze has no solution.\n");
+  }
+  else {
+    printf("\n");
+    printf("The maze has a solution.\n");
+    printf("The amount of coins collected: %d\n", coin);
+    printf("The path from start to end: \n");
+    printReverse(hd);
+    
+    if (debugMode == 1) {
+        printf("\n");
+        popReverse(hd);
+    }
+    
+  }
+  // deallocate the allocated memory
+  reset(&hd);
+  for (int i = 0; i < m1.xsize + 2; i++){
+      free(m1.arr[i]);
+      free(m1.flag[i]);
+  }
+  free(m1.arr);
+  free(m1.flag);
+  return 0;
+}
